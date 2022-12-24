@@ -1,0 +1,110 @@
+-- Import data set
+
+CREATE TABLE properties (
+prop_type text,
+title text,
+prop_location text,
+bedroom text,
+bathroom text,
+size_sqm text,
+price text);
+
+SELECT * FROM properties;
+
+DELETE FROM properties
+WHERE prop_type = 'prop_type';
+
+-- Remove/change rows with un-usable inputs
+
+SELECT DISTINCT prop_type
+FROM properties;
+
+DELETE
+FROM properties
+WHERE prop_type = 'Compound';
+
+SELECT DISTINCT bedroom
+FROM properties;
+
+UPDATE properties
+SET bedroom = '0'
+WHERE bedroom = 'Studio' OR bedroom = '{0}';
+
+SELECT DISTINCT bathroom
+FROM properties;
+
+SELECT DISTINCT size_sqm
+FROM properties;
+
+SELECT DISTINCT price
+FROM properties;
+
+DELETE
+FROM properties
+WHERE price = 'Ask';
+
+-- Remove commas from numerical columns
+UPDATE properties
+SET price = REPLACE(price, ',', '');
+
+UPDATE properties
+SET size_sqm = REPLACE(size_sqm, ',', '');
+
+-- Change data type of numerical columns
+ALTER TABLE properties
+ALTER COLUMN bedroom TYPE integer USING (bedroom::integer),
+ALTER COLUMN bathroom TYPE integer USING (bathroom::integer),
+ALTER COLUMN size_sqm TYPE integer USING (size_sqm::integer),
+ALTER COLUMN price TYPE integer USING (price::integer);
+
+-- Drop unwanted column
+ALTER TABLE properties
+DROP COLUMN title;
+
+-- Break up prop_location column
+
+CREATE TABLE locations
+AS SELECT
+SPLIT_PART(prop_location, ',', 1) AS Compound,
+SPLIT_PART(prop_location, ',', -2) AS District,
+SPLIT_PART(prop_location, ',', -1) AS City
+FROM properties;
+
+ALTER TABLE properties ADD COLUMN id SERIAL PRIMARY KEY;
+ALTER TABLE locations ADD COLUMN id SERIAL PRIMARY KEY;
+
+CREATE TABLE properties_final
+AS
+SELECT *
+FROM properties JOIN locations
+USING (id);
+
+ALTER TABLE properties_final
+DROP COLUMN prop_location;
+
+-- Remove duplicate enitries
+CREATE TABLE props_final AS 
+SELECT *,
+ROW_NUMBER() OVER(
+PARTITION BY 
+prop_type,
+bedroom,
+bathroom,
+size_sqm,
+price,
+compound,
+district,
+city
+ORDER BY id) row_n
+FROM properties_final;
+
+DELETE
+FROM props_final
+WHERE row_n > 1;
+
+ALTER TABLE props_final
+DROP COLUMN row_n,
+DROP COLUMN id;
+
+-- Display final table
+SELECT * FROM props_final;
